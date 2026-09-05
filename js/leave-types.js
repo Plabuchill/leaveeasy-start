@@ -4,12 +4,20 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase-config.js";
+import { getUserInfo } from "./auth-guard.js";
 import {
   collection, getDocs, addDoc,
   doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (async function () {
+  var ผู้ใช้ = await getUserInfo();
+  if (ผู้ใช้.role !== "hr") {
+    alert("หน้านี้สำหรับฝ่ายบุคคลเท่านั้น");
+    location.href = "index.html";
+    return;
+  }
+
   var ที่วางตาราง = document.getElementById("ตารางประเภท");
   var ช่องชื่อใหม่ = document.getElementById("ชื่อประเภทใหม่");
   var กล่องเตือน = document.getElementById("เตือนประเภท");

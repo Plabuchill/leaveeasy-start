@@ -4,12 +4,14 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db, auth } from "./firebase-config.js";
+import { getUserInfo } from "./auth-guard.js";
 import {
   doc, getDoc, updateDoc, deleteDoc,
   collection, getDocs, addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (async function () {
+  var ผู้ใช้ = await getUserInfo();
   var รหัสใบลา = ค่าจากURL("id");
   var กล่องใบลา = document.getElementById("กล่องใบลา");
   var กล่องความเห็น = document.getElementById("กล่องความเห็น");
@@ -50,23 +52,34 @@ import {
       return '<div class="field-row"><span class="k">' + r[0] + "</span><span>" + r[1] + "</span></div>";
     }).join("");
 
-    // ปุ่มอนุมัติ / ไม่อนุมัติ ขึ้นเฉพาะใบที่ยังรอพิจารณา
-    if (ใบ.status === "รอพิจารณา") {
-      html +=
-        '<div class="btn-row">' +
-        '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
-        '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
-        '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลา</button>' +
-        "</div>";
-    } else {
+    // ปุ่มอนุมัติ/ไม่อนุมัติ: employee ทำไม่ได้เลย (แม้ใบตัวเอง) ตาราง ACL.md
+    // ปุ่มลบ: โชว์เฉพาะเจ้าของใบเอง และใบต้องยังรอพิจารณา (US-07)
+    var เป็นเจ้าของ = ผู้ใช้.uid === ใบ.requesterId;
+    var ปุ่มพิจารณาได้ = ใบ.status === "รอพิจารณา" && ผู้ใช้.role !== "employee";
+    var ปุ่มลบได้ = ใบ.status === "รอพิจารณา" && เป็นเจ้าของ;
+
+    if (ปุ่มพิจารณาได้ || ปุ่มลบได้) {
+      html += '<div class="btn-row">';
+      if (ปุ่มพิจารณาได้) {
+        html +=
+          '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
+          '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>';
+      }
+      if (ปุ่มลบได้) {
+        html += '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลา</button>';
+      }
+      html += "</div>";
+    } else if (ใบ.status !== "รอพิจารณา") {
       html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
     }
 
     กล่องใบลา.innerHTML = html;
 
-    if (ใบ.status === "รอพิจารณา") {
+    if (ปุ่มพิจารณาได้) {
       document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
       document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+    }
+    if (ปุ่มลบได้) {
       document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
     }
   }
