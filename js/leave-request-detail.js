@@ -5,7 +5,7 @@
 
 import { db } from "./firebase-config.js";
 import {
-  doc, getDoc, updateDoc,
+  doc, getDoc, updateDoc, deleteDoc,
   collection, getDocs, addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -56,6 +56,7 @@ import {
         '<div class="btn-row">' +
         '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
         '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
+        '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลา</button>' +
         "</div>";
     } else {
       html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
@@ -66,6 +67,7 @@ import {
     if (ใบ.status === "รอพิจารณา") {
       document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
       document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+      document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
     }
   }
 
@@ -88,6 +90,26 @@ import {
       .catch(function (err) {
         ปุ่มทั้งคู่.forEach(function (ป) { ป.disabled = false; });
         alert("เปลี่ยนสถานะไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
+      });
+  }
+
+  // ── ลบใบลา — ต้องยืนยันก่อนทุกครั้ง กดยกเลิกแล้วต้องไม่ลบ ──
+  function ลบใบลา() {
+    if (!confirm('ยืนยันการลบใบลา "' + ใบ.title + '" หรือไม่ — ลบแล้วกู้คืนไม่ได้')) return;
+
+    var ปุ่มทั้งหมด = กล่องใบลา.querySelectorAll("button");
+    ปุ่มทั้งหมด.forEach(function (ป) { ป.disabled = true; });
+
+    Promise.all(ความเห็น.map(function (c) {
+      return deleteDoc(doc(db, "leaveRequests", รหัสใบลา, "approvals", c.id));
+    }))
+      .then(function () { return deleteDoc(refใบ); })
+      .then(function () {
+        location.href = "leave-requests.html";
+      })
+      .catch(function (err) {
+        ปุ่มทั้งหมด.forEach(function (ป) { ป.disabled = false; });
+        alert("ลบไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
       });
   }
 
