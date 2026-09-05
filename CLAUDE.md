@@ -30,8 +30,22 @@ There is no lint, test, or build command — none exist in this project.
 - `js/firebase-config.js` initializes Firebase and exports `db` (Firestore), importing the SDK straight from the `gstatic.com` CDN as ES modules (pinned version, currently 10.12.2) — this only works in the browser, not in Node, and only on pages loaded with `type="module"`.
 - `scripts/seed-firestore.mjs` is a separate, Node-only one-off seeder using the `firebase` npm package (the CDN import path in `js/firebase-config.js` can't be used from Node). It mirrors the sample data in spec section 7 exactly, including the `approvals` subcollection nested under each `leaveRequests` document.
 
-**Firestore shape** (see `leaveeasy-spec.md` section 5 for the full field-by-field reference): top-level collections `users`, `leaveTypes`, `leaveRequests`; `leaveRequests` documents have a nested `approvals` subcollection. Foreign keys are denormalized — e.g. a leave request stores both `requesterId` and a duplicated `requesterName` — because Firestore has no JOIN. Field name casing must match exactly across the codebase (`status` vs `Status` are different fields).
+**Firestore shape** (see `leaveeasy-spec.md` section 5 for the full field-by-field reference): every collection name is written camelCase, no underscores.
+- `users` — one document per user (`name`, `email`, `role`)
+- `leaveTypes` — one document per leave type (`name`)
+- `leaveRequests` — one document per leave request; has a nested subcollection:
+  - `leaveRequests/{id}/approvals` — approval comments belonging only to that one request
+
+Foreign keys are denormalized — e.g. a leave request stores both `requesterId` and a duplicated `requesterName` — because Firestore has no JOIN. Field name casing must match exactly across the codebase (`status` vs `Status` are different fields).
+
+**Leave request status has exactly 3 values** (`leaveRequests.status`, see spec section 6): `รอพิจารณา` (pending, the default for every new request) → `อนุมัติ` (approved) or `ไม่อนุมัติ` (rejected). Once a request leaves `รอพิจารณา` it can never change again — these are terminal states, and there's no path back from either. Changing status must only ever write the `status` field, never overwrite the rest of the document.
 
 **Security rules are currently wide open** (`allow read, write: if true`) as a deliberate, temporary week-6 state — the spec schedules per-role rules for week 8. Don't tighten or restructure rules without checking which week's work is in scope.
 
 **Thai identifiers are intentional.** Variable, function, and DOM-id names throughout the JS files are Thai (e.g. `ใบลาทั้งหมด`, `แสดงตาราง`, `กล่องใบลา`) — this is a deliberate teaching choice, not a mistake. Match the existing style when editing these files rather than switching to English.
+
+## Constraint: never commit real secrets
+
+Never put a real secret key into a file that gets pushed to GitHub — this applies to things like an OpenRouter/AI API key (coming in week 8), a Firebase Admin service-account JSON, or any `.env` value. If a task needs one, it belongs in an untracked file covered by `.gitignore`, not hardcoded into a committed file.
+
+This is different from the Firebase **web app config** already committed in `js/firebase-config.js` and `scripts/seed-firestore.mjs` (`apiKey`, `projectId`, etc.) — those values are meant to be public in client-side code; real access control comes from Firestore Security Rules, not from hiding that config. Don't treat that existing config as a leak, and don't move it into `.gitignore` — but don't use its presence as precedent for committing an actual secret key either.
