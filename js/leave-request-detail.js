@@ -24,6 +24,13 @@ import {
   }
   var ใบ = Object.assign({ id: สแนปช็อตใบ.id }, สแนปช็อตใบ.data());
 
+  // employee เปิดใบลาของพนักงานคนอื่นไม่ได้
+  if (ผู้ใช้.role === "employee" && ใบ.requesterId !== ผู้ใช้.uid) {
+    alert("คุณไม่มีสิทธิ์ดูใบลาของคนอื่น");
+    location.href = "leave-requests.html";
+    return;
+  }
+
   var สแนปช็อตความเห็น = await getDocs(collection(db, "leaveRequests", รหัสใบลา, "approvals"));
   var ความเห็น = สแนปช็อตความเห็น.docs.map(function (เอกสาร) {
     return Object.assign({ id: เอกสาร.id }, เอกสาร.data());

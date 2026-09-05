@@ -1,18 +1,26 @@
 // ─────────────────────────────────────────────────────────────
 // js/leave-requests.js — หน้าที่ 1 รายการใบลา
 // สัปดาห์ที่ 6: อ่านใบลาจริงจาก Firestore (collection "leaveRequests")
+// สัปดาห์ที่ 8: employee เห็นเฉพาะใบของตัวเอง (กรองฝั่งหน้าจอ)
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase-config.js";
+import { getUserInfo } from "./auth-guard.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (async function () {
   var กล่อง = document.getElementById("ผลลัพธ์");
+  var ผู้ใช้ = await getUserInfo();
 
   var สแนปช็อต = await getDocs(collection(db, "leaveRequests"));
   var ใบลาทั้งหมด = สแนปช็อต.docs.map(function (เอกสาร) {
     return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
   });
+
+  // employee เห็นเฉพาะใบของตัวเอง · manager/hr เห็นทุกใบ
+  if (ผู้ใช้.role === "employee") {
+    ใบลาทั้งหมด = ใบลาทั้งหมด.filter(function (ใบ) { return ใบ.requesterId === ผู้ใช้.uid; });
+  }
 
   // ถ้ามีสถานะติดมาท้าย URL ให้กรองเฉพาะสถานะนั้น
   var สถานะที่กรอง = ค่าจากURL("status");
