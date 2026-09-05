@@ -3,7 +3,7 @@
 // สัปดาห์ที่ 7: อ่าน/แก้ข้อมูลจริงจาก Firestore
 // ─────────────────────────────────────────────────────────────
 
-import { db } from "./firebase-config.js";
+import { db, auth } from "./firebase-config.js";
 import {
   doc, getDoc, updateDoc, deleteDoc,
   collection, getDocs, addDoc
@@ -143,9 +143,9 @@ import {
     }
     เตือน.classList.add("hidden");
 
-    // สัปดาห์ที่ 7 ยังไม่มีล็อกอิน จึงสมมติว่าผู้เขียนคือ สมหญิง รักงาน
+    var ผู้ใช้ = auth.currentUser;
     var ความเห็นใหม่ = {
-      authorId: "u002", authorName: "สมหญิง รักงาน",
+      authorId: ผู้ใช้.uid, authorName: ผู้ใช้.displayName || ผู้ใช้.email,
       message: ข้อความ,
       createdAt: เวลาตอนนี้()
     };

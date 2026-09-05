@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// js/firebase-config.js — เชื่อมต่อ Firebase (สัปดาห์ที่ 6: ใช้แค่ Firestore)
+// js/firebase-config.js — เชื่อมต่อ Firebase (สัปดาห์ที่ 7: Firestore + Authentication)
 // ─────────────────────────────────────────────────────────────
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDtY-G5g1DS2xsrBSr-rTS55-geHpFuAEs",
@@ -16,3 +17,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
