@@ -10,13 +10,9 @@ import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/
   var กล่อง = document.getElementById("ผลลัพธ์");
 
   var สแนปช็อต = await getDocs(collection(db, "leaveRequests"));
-  var ใบลาจากฐานข้อมูล = สแนปช็อต.docs.map(function (เอกสาร) {
+  var ใบลาทั้งหมด = สแนปช็อต.docs.map(function (เอกสาร) {
     return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
   });
-
-  // บวกกับใบที่เพิ่งยื่นในหน้าถัดไป (ยังไม่บันทึกลง Firestore จนกว่าจะถึงสัปดาห์ที่ 7)
-  var ใบลาที่ยื่นใหม่ = JSON.parse(sessionStorage.getItem("ใบลาที่ยื่นใหม่") || "[]");
-  var ใบลาทั้งหมด = ใบลาจากฐานข้อมูล.concat(ใบลาที่ยื่นใหม่);
 
   // ถ้ามีสถานะติดมาท้าย URL ให้กรองเฉพาะสถานะนั้น
   var สถานะที่กรอง = ค่าจากURL("status");
@@ -60,7 +56,7 @@ import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/
     // กดที่แถวไหน ไปหน้ารายละเอียดของใบนั้น
     กล่อง.querySelectorAll("tr.clickable").forEach(function (แถว) {
       แถว.addEventListener("click", function () {
-        location.href = "leave-request-detail.html?id=" + แถว.dataset.id;
+        location.href = "leave-request-detail?id=" + แถว.dataset.id;
       });
     });
   }

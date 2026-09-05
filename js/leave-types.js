@@ -1,16 +1,27 @@
 // ─────────────────────────────────────────────────────────────
 // js/leave-types.js — หน้าที่ 4 จัดการประเภทการลา
-// สัปดาห์ที่ 6 (ต้นสัปดาห์): เพิ่ม แก้ ลบ ในหน่วยความจำเท่านั้น
+// สัปดาห์ที่ 7: เพิ่ม แก้ ลบ ลง Firestore จริง (collection "leaveTypes")
 // ─────────────────────────────────────────────────────────────
 
-(function () {
-  var รายการ = window.LEAVE_DATA.leaveTypes.slice();   // ทำสำเนาไว้แก้
+import { db } from "./firebase-config.js";
+import {
+  collection, getDocs, addDoc,
+  doc, updateDoc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+(async function () {
   var ที่วางตาราง = document.getElementById("ตารางประเภท");
   var ช่องชื่อใหม่ = document.getElementById("ชื่อประเภทใหม่");
   var กล่องเตือน = document.getElementById("เตือนประเภท");
+  var ปุ่มเพิ่ม = document.getElementById("ปุ่มเพิ่ม");
+
+  var สแนปช็อต = await getDocs(collection(db, "leaveTypes"));
+  var รายการ = สแนปช็อต.docs.map(function (เอกสาร) {
+    return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
+  });
 
   วาดตาราง();
-  document.getElementById("ปุ่มเพิ่ม").addEventListener("click", เพิ่มประเภท);
+  ปุ่มเพิ่ม.addEventListener("click", เพิ่มประเภท);
 
   function วาดตาราง() {
     if (รายการ.length === 0) {
@@ -45,9 +56,20 @@
       return;
     }
     กล่องเตือน.classList.add("hidden");
-    รายการ.push({ id: "lt-ใหม่-" + Date.now(), name: ชื่อ });
-    ช่องชื่อใหม่.value = "";
-    วาดตาราง();
+
+    ปุ่มเพิ่ม.disabled = true;
+    addDoc(collection(db, "leaveTypes"), { name: ชื่อ })
+      .then(function (เอกสารใหม่) {
+        รายการ.push({ id: เอกสารใหม่.id, name: ชื่อ });
+        ช่องชื่อใหม่.value = "";
+        วาดตาราง();
+        ปุ่มเพิ่ม.disabled = false;
+      })
+      .catch(function (err) {
+        ปุ่มเพิ่ม.disabled = false;
+        กล่องเตือน.textContent = "⚠️ เพิ่มไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")";
+        กล่องเตือน.classList.remove("hidden");
+      });
   }
 
   function แก้ประเภท(id) {
@@ -55,14 +77,28 @@
     var ชื่อใหม่ = prompt("แก้ชื่อประเภทการลา", ประเภท.name);
     if (ชื่อใหม่ === null) return;              // กดยกเลิก
     if (!ชื่อใหม่.trim()) { alert("ชื่อประเภทการลาว่างเปล่าไม่ได้"); return; }
-    ประเภท.name = ชื่อใหม่.trim();
-    วาดตาราง();
+
+    updateDoc(doc(db, "leaveTypes", id), { name: ชื่อใหม่.trim() })
+      .then(function () {
+        ประเภท.name = ชื่อใหม่.trim();
+        วาดตาราง();
+      })
+      .catch(function (err) {
+        alert("แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
+      });
   }
 
   function ลบประเภท(id) {
     var ประเภท = รายการ.find(function (t) { return t.id === id; });
     if (!confirm('ยืนยันการลบประเภท "' + ประเภท.name + '" หรือไม่')) return;
-    รายการ = รายการ.filter(function (t) { return t.id !== id; });
-    วาดตาราง();
+
+    deleteDoc(doc(db, "leaveTypes", id))
+      .then(function () {
+        รายการ = รายการ.filter(function (t) { return t.id !== id; });
+        วาดตาราง();
+      })
+      .catch(function (err) {
+        alert("ลบไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
+      });
   }
 })();

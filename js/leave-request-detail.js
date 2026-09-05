@@ -1,24 +1,31 @@
 // ─────────────────────────────────────────────────────────────
 // js/leave-request-detail.js — หน้าที่ 3 รายละเอียดใบลา
-// สัปดาห์ที่ 6 (ต้นสัปดาห์): อ่านจากข้อมูลปลอม และเปลี่ยนสถานะในหน่วยความจำ
+// สัปดาห์ที่ 7: อ่าน/แก้ข้อมูลจริงจาก Firestore
 // ─────────────────────────────────────────────────────────────
 
-(function () {
+import { db } from "./firebase-config.js";
+import {
+  doc, getDoc, updateDoc,
+  collection, getDocs, addDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+(async function () {
   var รหัสใบลา = ค่าจากURL("id");
   var กล่องใบลา = document.getElementById("กล่องใบลา");
   var กล่องความเห็น = document.getElementById("กล่องความเห็น");
+  var refใบ = doc(db, "leaveRequests", รหัสใบลา);
 
-  // หาใบลาจากข้อมูลปลอม บวกกับใบที่เพิ่งยื่นในหน้าที่ 2
-  var ใบลาที่ยื่นใหม่ = JSON.parse(sessionStorage.getItem("ใบลาที่ยื่นใหม่") || "[]");
-  var ใบ = window.LEAVE_DATA.leaveRequests.concat(ใบลาที่ยื่นใหม่)
-    .find(function (x) { return x.id === รหัสใบลา; });
-
-  if (!ใบ) {
+  var สแนปช็อตใบ = await getDoc(refใบ);
+  if (!สแนปช็อตใบ.exists()) {
     กล่องใบลา.innerHTML = "<p>ไม่พบใบขอลาที่ต้องการ — อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>";
     return;
   }
+  var ใบ = Object.assign({ id: สแนปช็อตใบ.id }, สแนปช็อตใบ.data());
 
-  var ความเห็น = window.LEAVE_DATA.approvals.filter(function (c) { return c.requestId === ใบ.id; });
+  var สแนปช็อตความเห็น = await getDocs(collection(db, "leaveRequests", รหัสใบลา, "approvals"));
+  var ความเห็น = สแนปช็อตความเห็น.docs.map(function (เอกสาร) {
+    return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
+  });
 
   วาดใบลา();
   วาดความเห็น();
@@ -62,15 +69,26 @@
     }
   }
 
-  // ── เปลี่ยนสถานะ (สัปดาห์นี้เปลี่ยนแค่ในหน่วยความจำ) ──
+  // ── เปลี่ยนสถานะ — แก้เฉพาะช่อง status ในเอกสารจริง ห้ามแตะช่องอื่น ──
   function เปลี่ยนสถานะ(สถานะใหม่) {
     // กฎ: จะไม่อนุมัติได้ ต้องมีความเห็นอย่างน้อย 1 รายการก่อน
     if (สถานะใหม่ === "ไม่อนุมัติ" && ความเห็น.length === 0) {
       alert("ต้องเขียนความเห็นอย่างน้อย 1 รายการก่อน จึงจะกดไม่อนุมัติได้");
       return;
     }
-    ใบ.status = สถานะใหม่;   // แก้เฉพาะช่อง status เท่านั้น
-    วาดใบลา();
+
+    var ปุ่มทั้งคู่ = กล่องใบลา.querySelectorAll("button");
+    ปุ่มทั้งคู่.forEach(function (ป) { ป.disabled = true; });
+
+    updateDoc(refใบ, { status: สถานะใหม่ })
+      .then(function () {
+        ใบ.status = สถานะใหม่;
+        วาดใบลา();
+      })
+      .catch(function (err) {
+        ปุ่มทั้งคู่.forEach(function (ป) { ป.disabled = false; });
+        alert("เปลี่ยนสถานะไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
+      });
   }
 
   // ── รายการความเห็น เรียงจากเก่าไปใหม่ ──
@@ -89,10 +107,11 @@
       }).join("");
   }
 
-  // ── ส่งความเห็นใหม่ ──
+  // ── ส่งความเห็นใหม่ — บันทึกลง subcollection approvals จริง ──
   function ส่งความเห็น() {
     var ช่อง = document.getElementById("ข้อความความเห็น");
     var เตือน = document.getElementById("เตือนความเห็น");
+    var ปุ่ม = document.getElementById("ปุ่มส่งความเห็น");
     var ข้อความ = ช่อง.value.trim();
 
     if (!ข้อความ) {
@@ -102,15 +121,25 @@
     }
     เตือน.classList.add("hidden");
 
-    // สัปดาห์ที่ 6 ยังไม่มีล็อกอิน จึงสมมติว่าผู้เขียนคือ สมหญิง รักงาน
-    ความเห็น.push({
-      id: "ap-ใหม่-" + Date.now(),
-      requestId: ใบ.id,
+    // สัปดาห์ที่ 7 ยังไม่มีล็อกอิน จึงสมมติว่าผู้เขียนคือ สมหญิง รักงาน
+    var ความเห็นใหม่ = {
       authorId: "u002", authorName: "สมหญิง รักงาน",
       message: ข้อความ,
       createdAt: เวลาตอนนี้()
-    });
-    ช่อง.value = "";
-    วาดความเห็น();
+    };
+
+    ปุ่ม.disabled = true;
+    addDoc(collection(db, "leaveRequests", รหัสใบลา, "approvals"), ความเห็นใหม่)
+      .then(function (เอกสารใหม่) {
+        ความเห็น.push(Object.assign({ id: เอกสารใหม่.id }, ความเห็นใหม่));
+        ช่อง.value = "";
+        วาดความเห็น();
+        ปุ่ม.disabled = false;
+      })
+      .catch(function (err) {
+        ปุ่ม.disabled = false;
+        เตือน.textContent = "⚠️ ส่งความเห็นไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")";
+        เตือน.classList.remove("hidden");
+      });
   }
 })();
