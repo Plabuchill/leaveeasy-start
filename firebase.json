@@ -1,0 +1,18 @@
+{
+  "hosting": {
+    "public": ".",
+    "cleanUrls": true,
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "scripts/**",
+      "package.json",
+      "package-lock.json",
+      "*.md"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
