@@ -17,6 +17,8 @@ desktop.ini
 *.log
 .vscode/
 .idea/
+.obsidian/
+/leaveeasy/
 
 
 # ── ไฟล์ตั้งค่าและไฟล์ที่มีคีย์ลับ (ห้าม push เด็ดขาด) ──
@@ -34,6 +36,7 @@ secrets.json
 *.key
 config.local.js
 config.local.json
+js/ai-config.js
 
 
 # ─────────────────────────────────────────────────────────────

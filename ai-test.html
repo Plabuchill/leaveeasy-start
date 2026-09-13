@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ทดสอบ AI · LeaveEasy</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/ai-test.js" type="module"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 ทดสอบเชื่อมต่อ AI (OpenRouter)</h1>
+    <p class="subtitle">หน้านี้ไว้ทดสอบว่าคีย์และโมเดลที่ตั้งค่าไว้ใน js/ai-config.js ใช้งานได้จริงหรือไม่</p>
+
+    <div class="card">
+      <div class="btn-row">
+        <button type="button" id="ปุ่มทดสอบ">ส่งข้อความ "สวัสดี" ให้ AI</button>
+      </div>
+
+      <div id="ข้อความเตือน" class="alert alert-error hidden"></div>
+
+      <div id="กล่องคำตอบ" class="field-row hidden">
+        <span class="k">คำตอบจาก AI</span>
+        <span id="คำตอบ"></span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

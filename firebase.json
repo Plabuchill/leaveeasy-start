@@ -9,7 +9,8 @@
       "scripts/**",
       "package.json",
       "package-lock.json",
-      "*.md"
+      "*.md",
+      "js/ai-config.js"
     ]
   },
   "firestore": {

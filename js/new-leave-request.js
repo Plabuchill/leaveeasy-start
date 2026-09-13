@@ -6,12 +6,16 @@
 
 import { db, auth } from "./firebase-config.js";
 import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { จัดประเภทการลาด้วยAI } from "./ai-assist.js";
 
 (async function () {
   var ฟอร์ม = document.getElementById("ฟอร์มใบลา");
+  var ช่องเหตุผล = document.getElementById("reason");
   var ช่องประเภท = document.getElementById("leaveTypeId");
   var กล่องเตือน = document.getElementById("ข้อความเตือน");
   var ปุ่มบันทึก = document.getElementById("ปุ่มบันทึก");
+  var ปุ่มAI = document.getElementById("ปุ่มAI");
+  var กล่องข้อความAI = document.getElementById("ข้อความAI");
 
   // เติมรายการเลื่อนลงด้วยประเภทการลาจริงจาก Firestore
   var สแนปช็อตประเภท = await getDocs(collection(db, "leaveTypes"));
@@ -24,6 +28,42 @@ import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/
     ตัวเลือก.textContent = ประเภท.name;
     ช่องประเภท.appendChild(ตัวเลือก);
   });
+
+  ปุ่มAI.addEventListener("click", function () {
+    var เหตุผล = ช่องเหตุผล.value.trim();
+    if (!เหตุผล) {
+      แสดงข้อความAI("⚠️ พิมพ์เหตุผลการลาก่อน แล้วค่อยกดให้ AI ช่วยจัดประเภท", "alert-error");
+      return;
+    }
+
+    ปุ่มAI.disabled = true;
+    ปุ่มAI.textContent = "🤖 กำลังคิด...";
+    แสดงข้อความAI("", null, true);
+
+    จัดประเภทการลาด้วยAI(เหตุผล, ประเภทการลาทั้งหมด)
+      .then(function (รหัสประเภทที่เลือก) {
+        if (!รหัสประเภทที่เลือก) {
+          แสดงข้อความAI("⚠️ AI จัดประเภทให้ไม่ได้ ลองเลือกเองจากรายการด้านล่าง", "alert-error");
+          return;
+        }
+        ช่องประเภท.value = รหัสประเภทที่เลือก;
+        แสดงข้อความAI("🤖 ข้อเสนอจาก AI — โปรดตรวจสอบก่อนยืนยัน", "alert-ai");
+      })
+      .finally(function () {
+        ปุ่มAI.disabled = false;
+        ปุ่มAI.textContent = "🤖 ให้ AI ช่วยจัดประเภทการลา";
+      });
+  });
+
+  function แสดงข้อความAI(ข้อความ, คลาส, ซ่อนไว้ก่อน) {
+    กล่องข้อความAI.className = "alert " + (คลาส || "alert-ai");
+    กล่องข้อความAI.textContent = ข้อความ;
+    if (ซ่อนไว้ก่อน || !ข้อความ) {
+      กล่องข้อความAI.classList.add("hidden");
+    } else {
+      กล่องข้อความAI.classList.remove("hidden");
+    }
+  }
 
   ฟอร์ม.addEventListener("submit", function (e) {
     e.preventDefault();

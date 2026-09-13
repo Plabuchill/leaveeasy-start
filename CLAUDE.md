@@ -40,12 +40,12 @@ Foreign keys are denormalized — e.g. a leave request stores both `requesterId`
 
 **Leave request status has exactly 3 values** (`leaveRequests.status`, see spec section 6): `รอพิจารณา` (pending, the default for every new request) → `อนุมัติ` (approved) or `ไม่อนุมัติ` (rejected). Once a request leaves `รอพิจารณา` it can never change again — these are terminal states, and there's no path back from either. Changing status must only ever write the `status` field, never overwrite the rest of the document.
 
-**Security rules are currently wide open** (`allow read, write: if true`) as a deliberate, temporary week-6 state — the spec schedules per-role rules for week 8. Don't tighten or restructure rules without checking which week's work is in scope.
+**Security rules are per-role and deployed** (`firestore.rules`) — this is week 8 work, already done: each collection's rules check the caller's `role` by reading their own `users/{uid}` document via `get()`. Note that the Firestore Rules language does not support Thai identifiers (only JS does), so function names in `firestore.rules` are English even though string values being compared (status text, role names) stay as specified. Don't loosen or restructure these without checking which week's work is in scope.
 
 **Thai identifiers are intentional.** Variable, function, and DOM-id names throughout the JS files are Thai (e.g. `ใบลาทั้งหมด`, `แสดงตาราง`, `กล่องใบลา`) — this is a deliberate teaching choice, not a mistake. Match the existing style when editing these files rather than switching to English.
 
 ## Constraint: never commit real secrets
 
-Never put a real secret key into a file that gets pushed to GitHub — this applies to things like an OpenRouter/AI API key (coming in week 8), a Firebase Admin service-account JSON, or any `.env` value. If a task needs one, it belongs in an untracked file covered by `.gitignore`, not hardcoded into a committed file.
+Never put a real secret key into a file that gets pushed to GitHub — this applies to things like an OpenRouter/AI API key, a Firebase Admin service-account JSON, or any `.env` value. If a task needs one, it belongs in an untracked file covered by `.gitignore`, not hardcoded into a committed file. The OpenRouter key for the week-8 AI-assist button lives in `js/ai-config.js`, which is `.gitignore`d by name — each student fills in their own key locally, never committed.
 
 This is different from the Firebase **web app config** already committed in `js/firebase-config.js` and `scripts/seed-firestore.mjs` (`apiKey`, `projectId`, etc.) — those values are meant to be public in client-side code; real access control comes from Firestore Security Rules, not from hiding that config. Don't treat that existing config as a leak, and don't move it into `.gitignore` — but don't use its presence as precedent for committing an actual secret key either.

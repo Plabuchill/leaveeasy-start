@@ -1,15 +1,101 @@
 // ─────────────────────────────────────────────────────────────
 // firestore.rules — กฎเฝ้าข้อมูลของ LeaveEasy
-// สัปดาห์ที่ 7: กฎขั้นต่ำเพียงข้อเดียว — ต้องล็อกอินก่อน ถึงจะอ่าน/เขียนได้
-// (กฎรายบทบาทละเอียด เช่น employee เห็นเฉพาะใบตัวเอง เป็นงานสัปดาห์ที่ 8)
+// สัปดาห์ที่ 8: กฎรายบทบาทตามตารางสิทธิ์ใน ACL.md
+// (สัปดาห์ที่ 7 มีแค่กฎขั้นต่ำ "ต้องล็อกอินก่อน" — ตอนนี้แยกสิทธิ์ตามคนแล้ว)
+//
+// หมายเหตุ: ภาษากฎของ Firestore (Rules Language) ไม่รองรับชื่อฟังก์ชัน/ตัวแปร
+// เป็นภาษาไทย (ต่างจาก JavaScript ในโฟลเดอร์ js/) ชื่อฟังก์ชันด้านล่างจึงเป็นภาษาอังกฤษ
+// แต่ค่าที่เทียบ (เช่น สถานะ, role) ยังเป็นภาษาไทย/อังกฤษตามที่สเปคกำหนดเหมือนเดิม
 // ─────────────────────────────────────────────────────────────
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // อ่าน role ของคนที่ล็อกอินอยู่ จากเอกสารตัวเองในโฟลเดอร์ users
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isApproverOrHr() {
+      return isSignedIn() && myRole() in ['manager', 'hr'];
+    }
+
+    // ── users — ทุกคนอ่าน/สร้างได้เฉพาะเอกสารของตัวเอง แก้/ลบไม่ได้เลย ──
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update, delete: if false;
+    }
+
+    // ── leaveTypes — อ่านได้ทุกคนที่ล็อกอิน (ใช้เติม dropdown) เขียนได้เฉพาะ hr ──
+    match /leaveTypes/{typeId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && myRole() == 'hr';
+    }
+
+    // ── leaveRequests — เจ้าของใบเห็นใบตัวเอง · manager/hr เห็นทุกใบ ──
+    match /leaveRequests/{requestId} {
+      // ใช้ร่วมกันทั้ง approvals และ aiLog ด้านล่าง
+      function isOwnerOfRequest() {
+        return get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.requesterId == request.auth.uid;
+      }
+
+      allow read: if isSignedIn() &&
+        (resource.data.requesterId == request.auth.uid || isApproverOrHr());
+
+      // ยื่นใบใหม่: requesterId ต้องเป็นตัวเอง และสถานะเริ่มต้นต้องเป็น "รอพิจารณา" เท่านั้น
+      allow create: if isSignedIn() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        request.resource.data.status == 'รอพิจารณา';
+
+      // เปลี่ยนสถานะ: เฉพาะ manager/hr และแก้ได้เฉพาะช่อง status ห้ามแตะช่องอื่น
+      // บันทึกสรุปจาก AI (aiSuggestion): เฉพาะ manager/hr เช่นกัน แต่ต้องแก้แยกจากช่อง status เสมอ
+      // (คนละครั้งเขียน ไม่ใช่พร้อมกัน) เพื่อไม่ให้การเปลี่ยนสถานะเขียนทับช่องอื่นได้
+      allow update: if isApproverOrHr() &&
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) ||
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiSuggestion']));
+
+      // ลบ: เฉพาะเจ้าของใบ และใบต้องยังเป็น "รอพิจารณา"
+      allow delete: if isSignedIn() &&
+        resource.data.requesterId == request.auth.uid &&
+        resource.data.status == 'รอพิจารณา';
+
+      // ── approvals — โฟลเดอร์ย่อยของใบลาแต่ละใบ ──
+      match /approvals/{approvalId} {
+        allow read: if isSignedIn() && (isOwnerOfRequest() || isApproverOrHr());
+
+        allow create: if isSignedIn() &&
+          (isOwnerOfRequest() || isApproverOrHr()) &&
+          request.resource.data.authorId == request.auth.uid;
+
+        allow update: if false;
+
+        // ลบความเห็นได้เฉพาะตอนเจ้าของใบลบทั้งใบ ขณะใบยังเป็น "รอพิจารณา"
+        allow delete: if isSignedIn() &&
+          isOwnerOfRequest() &&
+          get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.status == 'รอพิจารณา';
+      }
+
+      // ── aiLog — ประวัติการเรียก AI สรุปใบลาของใบนี้ (input/output/createdAt ทุกครั้งที่เรียก) ──
+      match /aiLog/{logId} {
+        allow read: if isSignedIn() && (isOwnerOfRequest() || isApproverOrHr());
+
+        // สร้างได้เฉพาะ manager/hr เพราะเป็นคนกดปุ่มให้ AI สรุปใบลา
+        allow create: if isApproverOrHr();
+
+        allow update: if false;
+
+        // ลบพร้อมกับตอนเจ้าของใบลบทั้งใบ ขณะใบยังเป็น "รอพิจารณา" (เหมือน approvals)
+        allow delete: if isSignedIn() &&
+          isOwnerOfRequest() &&
+          get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.status == 'รอพิจารณา';
+      }
     }
   }
 }
