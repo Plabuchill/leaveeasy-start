@@ -117,9 +117,14 @@ test.describe('US-07 ลบใบลาของตัวเอง', () => {
     await page.waitForURL(/leave-requests(\.html)?$/, { timeout: 10000 });
     await expect(page.locator('#ผลลัพธ์')).toContainText('ยังไม่มีใบขอลาในระบบ');
 
-    // เปิดลิงก์เดิมตรง ๆ ต้องไม่พบใบลาแล้ว
+    // เปิดลิงก์เดิมตรง ๆ ต้องไม่พบใบลาแล้ว — เอกสารที่ถูกลบแล้วทำให้ firestore.rules
+    // เช็คเจ้าของใบไม่ได้ (resource เป็น null) จึงตอบ permission-denied แทนที่จะบอกตรง ๆ
+    // ว่า "ไม่พบ" หน้าจึงขึ้น alert แล้วพากลับหน้ารายการ (ดู js/leave-request-detail.js)
+    const กล่องโต้ตอบหลังลบ = จับกล่องโต้ตอบถัดไป(page);
     await page.goto('/leave-request-detail.html?id=' + รหัสใบลา);
-    await expect(page.locator('#กล่องใบลา')).toContainText('ไม่พบใบขอลาที่ต้องการ');
+    const dialog = await กล่องโต้ตอบหลังลบ;
+    expect(dialog.message).toContain('ไม่พบใบขอลาที่ต้องการ');
+    await page.waitForURL(/leave-requests(\.html)?$/, { timeout: 10000 });
   });
 });
 

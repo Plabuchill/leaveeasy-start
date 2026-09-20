@@ -79,10 +79,22 @@ const เหตุผลข้ามHr =
   'ข้ามเทสต์นี้: ยังไม่มีบัญชี hr จริงสำหรับทดสอบ (เหตุผลเดียวกับ manager) ' +
   'ตั้งค่า HR_EMAIL / HR_PASSWORD เพื่อรันเทสต์นี้';
 
+// รอให้ dropdown ประเภทการลาโหลดจริงจาก Firestore เสร็จก่อน (new-leave-request.js
+// ดึงข้อมูลแบบ async หลัง await auth พร้อม — ถ้าไม่รอ การคลิก/อ่านค่าในฟอร์มอาจไปเกิดขึ้น
+// ก่อน JS ติด event listener จริง ทำให้เทสต์ดูเหมือนบั๊กแอปทั้งที่จริงคือเทสต์รันเร็วไป)
+async function รอโหลดประเภทการลา(page) {
+  const { expect } = require('@playwright/test');
+  // ใช้ toHaveCount แทน .waitFor() ธรรมดา เพราะ <option> ใน <select> ที่ยังไม่เปิด
+  // ถูก Chromium รายงานว่า "hidden" เสมอแม้จะมีอยู่จริงในตัวเลือกแล้ว — .waitFor() แบบ
+  // ค่าเริ่มต้น (state: 'visible') จึง timeout ทั้งที่ตัวเลือกโหลดมาแล้ว
+  await expect(page.locator('#leaveTypeId option')).toHaveCount(4, { timeout: 15000 });
+}
+
 // ยื่นใบลาใหม่ผ่านฟอร์มจริง (สมมุติว่า login อยู่แล้วและอยู่หน้าไหนก็ได้)
 // คืนค่ารหัสใบลาที่สร้างใหม่ (อ่านจาก data-id ของแถวในตารางหลังบันทึกเสร็จ)
 async function ยื่นใบลาใหม่(page, { title, reason, leaveTypeLabel, startDate, endDate } = {}) {
   await page.goto('/new-leave-request.html');
+  await รอโหลดประเภทการลา(page);
 
   await page.locator('#title').fill(title || 'ทดสอบอัตโนมัติ - ' + Date.now());
   await page.locator('#reason').fill(reason || 'เหตุผลทดสอบที่เขียนโดย Playwright');
@@ -127,4 +139,5 @@ module.exports = {
   เหตุผลข้ามHr,
   ยื่นใบลาใหม่,
   จับกล่องโต้ตอบถัดไป,
+  รอโหลดประเภทการลา,
 };

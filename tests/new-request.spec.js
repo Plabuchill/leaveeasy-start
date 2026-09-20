@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const { สมัครพนักงานใหม่ } = require('./helpers');
+const { สมัครพนักงานใหม่, รอโหลดประเภทการลา } = require('./helpers');
 
 test.beforeEach(async ({ page }) => {
   await สมัครพนักงานใหม่(page);
@@ -25,6 +25,7 @@ test('ฟอร์มยื่นใบลาใหม่มีช่องค�
 
 test('รายการเลื่อนลงประเภทการลา อ่านมาจากโฟลเดอร์ leaveTypes จริง', async ({ page }) => {
   await page.goto('/new-leave-request.html');
+  await รอโหลดประเภทการลา(page);
   const ตัวเลือก = page.locator('#leaveTypeId option');
   // อย่างน้อยต้องมีตัวเลือกว่าง + ประเภทตัวอย่าง 3 แบบตามหัวข้อ 7 ของสเปค
   const ข้อความทั้งหมด = await ตัวเลือก.allTextContents();
@@ -65,6 +66,7 @@ test('กรอกครบแล้วกดบันทึก ต้องส�
 
 test('กรอกไม่ครบ ต้องขึ้นข้อความเตือน และไม่บันทึกใบลา', async ({ page }) => {
   await page.goto('/new-leave-request.html');
+  await รอโหลดประเภทการลา(page); // รอ submit listener ติดตั้งเสร็จก่อน ไม่งั้นคลิกเร็วไปจะไม่มีอะไรเกิดขึ้นเลย
   await page.locator('#title').fill('กรอกไม่ครบตั้งใจ');
   // ไม่กรอกเหตุผล/ประเภท/วันที่ ตั้งใจปล่อยว่าง
   await page.locator('[id="ปุ่มบันทึก"]').click();

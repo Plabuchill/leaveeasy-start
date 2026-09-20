@@ -5,24 +5,32 @@
 // มีป้าย "ข้อเสนอจาก AI — โปรดตรวจสอบก่อนยืนยัน" · ระหว่างรอปุ่มกดซ้ำไม่ได้ ·
 // เรียกไม่สำเร็จ/เกิน 15 วิ ไม่ค้าง และยังกดบันทึกใบลาได้ปกติ · แก้ประเภทที่ AI เลือกเองได้เสมอ
 //
-// ใช้ page.route ดัก request ไป openrouter.ai แทนการเรียก AI จริง เพื่อ:
-// 1) ทดสอบได้แน่นอน ไม่ขึ้นกับผลลัพธ์จริงของโมเดล AI ภายนอก
-// 2) ไม่ต้องพึ่งพา js/ai-config.js (คีย์ส่วนตัวของแต่ละคน ที่ .gitignore กันไว้ และ
-//    ไม่ได้ถูก deploy ขึ้น Firebase Hosting ตาม firebase.json ignore list)
+// ใช้ page.route ดัก request ไป openrouter.ai แทนการเรียก AI จริง เพื่อทดสอบได้แน่นอน
+// ไม่ขึ้นกับผลลัพธ์จริงของโมเดล AI ภายนอก
 //
-// หมายเหตุสำคัญที่พบระหว่างเขียนเทสต์ชุดนี้ (ดูสรุปในรายงานท้ายงาน):
-// เว็บจริงบน Firebase Hosting (baseURL ที่ตั้งไว้ใน playwright.config.js) ยัง เป็นเวอร์ชัน
-// ก่อนสัปดาห์ที่ 8 — ปุ่ม "ให้ AI ช่วยจัดประเภทการลา" ยังไม่ถูก deploy ขึ้นจริง
-// (เช็กจาก js/new-leave-request.js ที่ /new-leave-request.js บนเว็บจริง ไม่มีการ import
-// ai-assist.js เลย) เทสต์ชุดนี้จึงคาดว่าจะไม่ผ่านในการรันรอบแรกจนกว่าจะ deploy ใหม่
-// — ปล่อยให้ทดสอบแล้ว "ไม่ผ่าน" ตรง ๆ ตั้งใจ เพื่อให้เห็นบั๊ก/งานค้างนี้ชัดเจน
-// ไม่ได้แก้ไฟล์แอปหรือ config ใด ๆ เพื่อทำให้เทสต์นี้ผ่านปลอม ๆ
+// หมายเหตุสำคัญ: js/ai-config.js (คีย์ส่วนตัวของแต่ละคน) ถูก .gitignore กันไว้และไม่ถูก
+// deploy ขึ้น Firebase Hosting ตาม firebase.json ignore list ตั้งใจ (กันคีย์รั่ว) — บนเว็บจริง
+// ไฟล์นี้จึง 404 เสมอ ai-assist.js เลยโหลดค่านี้แบบ dynamic import ตอนเรียกใช้จริง ถ้าโหลด
+// ไม่ได้ก็ถือว่า "เรียก AI ไม่สำเร็จ" (ดู js/ai-assist.js) เทสต์ชุดนี้จึงต้อง mock ทั้งไฟล์
+// ai-config.js เองด้วย (ไม่ใช่แค่ปลายทาง openrouter.ai) ไม่งั้นโค้ดจะหยุดอยู่ที่ "จัดให้ไม่ได้"
+// ก่อนจะไปถึงจุดที่ยิง request ไป openrouter.ai เลย
 // ─────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const { สมัครพนักงานใหม่ } = require('./helpers');
+const { สมัครพนักงานใหม่, รอโหลดประเภทการลา } = require('./helpers');
 
 const AI_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+
+// จำลอง ai-config.js ให้มีอยู่ (production จริงไม่มีไฟล์นี้ตามที่ตั้งใจ) เพื่อให้เทสต์ผ่าน
+// จุดโหลดค่าตั้งค่าไปถึงขั้นยิง fetch จริงที่ page.route ข้างล่างดักไว้ได้
+function mockAiConfig(page) {
+  return page.route('**/ai-config.js', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: 'export const OPENROUTER_API_KEY = "test-key"; export const AI_MODEL = "test-model";',
+    })
+  );
+}
 
 function mockAiSuccess(page, ตอบเป็นรหัสประเภท) {
   return page.route(AI_ENDPOINT, (route) =>
@@ -41,8 +49,10 @@ function mockAiFailure(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await mockAiConfig(page);
   await สมัครพนักงานใหม่(page);
   await page.goto('/new-leave-request.html');
+  await รอโหลดประเภทการลา(page);
 });
 
 test('มีปุ่ม "ให้ AI ช่วยจัดประเภทการลา" ในหน้ายื่นใบลาใหม่', async ({ page }) => {
