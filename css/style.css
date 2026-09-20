@@ -138,6 +138,21 @@ textarea { min-height: 110px; resize: vertical; }
 .field-row { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 7px 0; border-bottom: 1px dashed var(--สีขอบ); }
 .field-row .k { min-width: 150px; font-weight: 700; }
 
+/* ── สำหรับหน้าแดชบอร์ด ── */
+.status-summary { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.status-box {
+  flex: 1 1 200px;
+  background: #fff;
+  border: 1px solid var(--สีขอบ);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+}
+.status-count a { text-decoration: none; color: inherit; }
+.status-count { font-size: 44px; font-weight: 700; line-height: 1.2; color: var(--สีหลัก); }
+.status-box:hover { background: #eaf3fa; }
+.status-label { color: var(--สีจาง); margin-top: 8px; font-size: 14px; font-weight: 700; }
+
 /* ── มือถือ ── */
 @media (max-width: 640px) {
   body { font-size: 16px; }
