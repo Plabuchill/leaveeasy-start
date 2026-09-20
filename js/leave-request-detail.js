@@ -18,7 +18,19 @@ import { สรุปใบลาด้วยAI } from "./ai-assist.js";
   var กล่องความเห็น = document.getElementById("กล่องความเห็น");
   var refใบ = doc(db, "leaveRequests", รหัสใบลา);
 
-  var สแนปช็อตใบ = await getDoc(refใบ);
+  var สแนปช็อตใบ;
+  try {
+    สแนปช็อตใบ = await getDoc(refใบ);
+  } catch (err) {
+    // firestore.rules ปฏิเสธ (เช่น employee เปิดใบของคนอื่นตรงๆ ผ่าน URL) หรือโหลดไม่สำเร็จ
+    if (err.code === "permission-denied") {
+      alert("คุณไม่มีสิทธิ์ดูใบลาของคนอื่น");
+    } else {
+      alert("โหลดข้อมูลใบลาไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")");
+    }
+    location.href = "leave-requests.html";
+    return;
+  }
   if (!สแนปช็อตใบ.exists()) {
     กล่องใบลา.innerHTML = "<p>ไม่พบใบขอลาที่ต้องการ — อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>";
     return;

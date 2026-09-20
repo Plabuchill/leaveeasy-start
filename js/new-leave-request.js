@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db, auth } from "./firebase-config.js";
+import { getUserInfo } from "./auth-guard.js";
 import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { จัดประเภทการลาด้วยAI } from "./ai-assist.js";
 
@@ -16,6 +17,11 @@ import { จัดประเภทการลาด้วยAI } from "./ai-a
   var ปุ่มบันทึก = document.getElementById("ปุ่มบันทึก");
   var ปุ่มAI = document.getElementById("ปุ่มAI");
   var กล่องข้อความAI = document.getElementById("ข้อความAI");
+
+  // ต้องรอ auth พร้อมก่อน (เหมือน leave-requests.js/leave-request-detail.js)
+  // ไม่งั้น query leaveTypes จะยิงไปตอน auth ยังไม่พร้อม ถูก rules ปฏิเสธ
+  // แล้ว throw กลางฟังก์ชัน ทำให้โค้ดถัดไป (รวมถึงการติด submit listener) ไม่ทำงานเลย
+  await getUserInfo();
 
   // เติมรายการเลื่อนลงด้วยประเภทการลาจริงจาก Firestore
   var สแนปช็อตประเภท = await getDocs(collection(db, "leaveTypes"));

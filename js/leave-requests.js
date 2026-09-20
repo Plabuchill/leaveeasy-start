@@ -1,25 +1,32 @@
 // ─────────────────────────────────────────────────────────────
 // js/leave-requests.js — หน้าที่ 1 รายการใบลา
 // สัปดาห์ที่ 6: อ่านใบลาจริงจาก Firestore (collection "leaveRequests")
-// สัปดาห์ที่ 8: employee เห็นเฉพาะใบของตัวเอง (กรองฝั่งหน้าจอ)
+// สัปดาห์ที่ 8: employee เห็นเฉพาะใบของตัวเอง (กรองด้วย query ฝั่ง Firestore
+//   ให้ตรงกับ firestore.rules — employee ที่ query ทั้ง collection จะถูกปฏิเสธ)
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase-config.js";
 import { getUserInfo } from "./auth-guard.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 (async function () {
   var กล่อง = document.getElementById("ผลลัพธ์");
   var ผู้ใช้ = await getUserInfo();
 
-  var สแนปช็อต = await getDocs(collection(db, "leaveRequests"));
-  var ใบลาทั้งหมด = สแนปช็อต.docs.map(function (เอกสาร) {
-    return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
-  });
+  // employee ดูได้เฉพาะใบของตัวเอง (query ให้ตรง rules) · manager/hr ดูได้ทั้งหมด
+  var คำสั่งดึงข้อมูล = ผู้ใช้.role === "employee"
+    ? query(collection(db, "leaveRequests"), where("requesterId", "==", ผู้ใช้.uid))
+    : collection(db, "leaveRequests");
 
-  // employee เห็นเฉพาะใบของตัวเอง · manager/hr เห็นทุกใบ
-  if (ผู้ใช้.role === "employee") {
-    ใบลาทั้งหมด = ใบลาทั้งหมด.filter(function (ใบ) { return ใบ.requesterId === ผู้ใช้.uid; });
+  var ใบลาทั้งหมด;
+  try {
+    var สแนปช็อต = await getDocs(คำสั่งดึงข้อมูล);
+    ใบลาทั้งหมด = สแนปช็อต.docs.map(function (เอกสาร) {
+      return Object.assign({ id: เอกสาร.id }, เอกสาร.data());
+    });
+  } catch (err) {
+    กล่อง.innerHTML = "<p>โหลดรายการใบลาไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")</p>";
+    return;
   }
 
   // ถ้ามีสถานะติดมาท้าย URL ให้กรองเฉพาะสถานะนั้น
