@@ -1,5 +1,8 @@
 # 🔧 LeaveEasy — จุดเริ่มต้นของใบงาน
 
+**เว็บออนไลน์:** https://plabu-a08a6.web.app
+**ผลการทดสอบล่าสุด:** [test-results.md](test-results.md)
+
 **ผู้จัดทำ:** Suchavadee Chaiwanna
 
 **ADT-RAISE Non-Degree Batch 2 · Module 2: MVP-Ready** (สัปดาห์ที่ 6–9)
