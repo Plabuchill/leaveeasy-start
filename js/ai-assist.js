@@ -7,9 +7,17 @@
 // 2) สรุปใบลาด้วยAI — สรุปสั้น ๆ ให้หัวหน้าอ่านก่อนกดอนุมัติ ไม่แตะสถานะใบลาเอง
 // ─────────────────────────────────────────────────────────────
 
-import { OPENROUTER_API_KEY, AI_MODEL } from "./ai-config.js";
-
 var เวลาสูงสุดมิลลิวินาที = 15000;
+
+// ai-config.js เก็บคีย์ลับ ไม่ถูก deploy ขึ้น production (กันคีย์รั่ว ตาม CLAUDE.md)
+// โหลดแบบ dynamic import ตอนเรียกใช้จริงแทน static import เพราะถ้าไฟล์นี้ไม่มี (เช่นบน production)
+// static import จะทำให้ทั้งไฟล์นี้และไฟล์ที่ import ต่อ (new-leave-request.js, leave-request-detail.js)
+// โหลดไม่ขึ้นเลยทั้งไฟล์ — ไม่ใช่แค่ปุ่ม AI ใช้ไม่ได้ แต่ฟอร์ม/หน้าทั้งหน้าพังไปด้วย
+function โหลดค่าตั้งค่าAI() {
+  return import("./ai-config.js")
+    .then(function (ค่า) { return { key: ค่า.OPENROUTER_API_KEY, model: ค่า.AI_MODEL }; })
+    .catch(function () { return null; }); // ยังไม่ได้ตั้งค่าไฟล์นี้ — ถือว่าเรียก AI ไม่ได้ ไม่ใช่ error
+}
 
 // เหตุผล: ข้อความในช่อง reason ที่ผู้ใช้พิมพ์
 // ประเภททั้งหมด: [{ id, name }, ...] รายชื่อ leaveTypes ที่มีอยู่จริงตอนนี้
@@ -29,34 +37,39 @@ export function จัดประเภทการลาด้วยAI(เห�
     "รายชื่อประเภทการลา:\n" + รายชื่อประเภท + "\n\n" +
     "เหตุผลการลา: " + เหตุผล;
 
-  return fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    signal: ตัวตัดเวลา.signal,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENROUTER_API_KEY
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [{ role: "user", content: คำสั่ง }],
-      temperature: 0
-    })
-  })
-    .then(function (ตอบกลับ) {
-      if (!ตอบกลับ.ok) throw new Error("เรียก AI ไม่สำเร็จ");
-      return ตอบกลับ.json();
-    })
-    .then(function (ข้อมูล) {
-      var ข้อความตอบ =
-        ข้อมูล.choices && ข้อมูล.choices[0] && ข้อมูล.choices[0].message
-          ? ข้อมูล.choices[0].message.content.trim()
-          : "";
+  return โหลดค่าตั้งค่าAI()
+    .then(function (ตั้งค่า) {
+      if (!ตั้งค่า) return null; // ไม่มี ai-config.js — ถือว่าจัดให้ไม่ได้ เหมือนเรียกไม่สำเร็จ
 
-      var ตรงกับประเภทไหน =
-        ประเภททั้งหมด.find(function (t) { return t.id === ข้อความตอบ; }) ||
-        ประเภททั้งหมด.find(function (t) { return ข้อความตอบ.indexOf(t.id) !== -1; });
+      return fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        signal: ตัวตัดเวลา.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + ตั้งค่า.key
+        },
+        body: JSON.stringify({
+          model: ตั้งค่า.model,
+          messages: [{ role: "user", content: คำสั่ง }],
+          temperature: 0
+        })
+      })
+        .then(function (ตอบกลับ) {
+          if (!ตอบกลับ.ok) throw new Error("เรียก AI ไม่สำเร็จ");
+          return ตอบกลับ.json();
+        })
+        .then(function (ข้อมูล) {
+          var ข้อความตอบ =
+            ข้อมูล.choices && ข้อมูล.choices[0] && ข้อมูล.choices[0].message
+              ? ข้อมูล.choices[0].message.content.trim()
+              : "";
 
-      return ตรงกับประเภทไหน ? ตรงกับประเภทไหน.id : null;
+          var ตรงกับประเภทไหน =
+            ประเภททั้งหมด.find(function (t) { return t.id === ข้อความตอบ; }) ||
+            ประเภททั้งหมด.find(function (t) { return ข้อความตอบ.indexOf(t.id) !== -1; });
+
+          return ตรงกับประเภทไหน ? ตรงกับประเภทไหน.id : null;
+        });
     })
     .catch(function () {
       return null; // เรียกไม่สำเร็จ หรือหมดเวลา — ไม่ให้ระบบค้าง ถือว่าจัดให้ไม่ได้
@@ -82,29 +95,34 @@ export function สรุปใบลาด้วยAI(ใบ) {
     "เหตุผล: " + ใบ.reason + "\n" +
     "วันที่ลา: " + ใบ.startDate + " ถึง " + ใบ.endDate;
 
-  return fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    signal: ตัวตัดเวลา.signal,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENROUTER_API_KEY
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [{ role: "user", content: คำสั่ง }],
-      temperature: 0.3
-    })
-  })
-    .then(function (ตอบกลับ) {
-      if (!ตอบกลับ.ok) throw new Error("เรียก AI ไม่สำเร็จ");
-      return ตอบกลับ.json();
-    })
-    .then(function (ข้อมูล) {
-      var ข้อความตอบ =
-        ข้อมูล.choices && ข้อมูล.choices[0] && ข้อมูล.choices[0].message
-          ? ข้อมูล.choices[0].message.content.trim()
-          : "";
-      return { input: คำสั่ง, output: ข้อความตอบ || null };
+  return โหลดค่าตั้งค่าAI()
+    .then(function (ตั้งค่า) {
+      if (!ตั้งค่า) return { input: คำสั่ง, output: null }; // ไม่มี ai-config.js — ถือว่าเรียกไม่สำเร็จ
+
+      return fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        signal: ตัวตัดเวลา.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + ตั้งค่า.key
+        },
+        body: JSON.stringify({
+          model: ตั้งค่า.model,
+          messages: [{ role: "user", content: คำสั่ง }],
+          temperature: 0.3
+        })
+      })
+        .then(function (ตอบกลับ) {
+          if (!ตอบกลับ.ok) throw new Error("เรียก AI ไม่สำเร็จ");
+          return ตอบกลับ.json();
+        })
+        .then(function (ข้อมูล) {
+          var ข้อความตอบ =
+            ข้อมูล.choices && ข้อมูล.choices[0] && ข้อมูล.choices[0].message
+              ? ข้อมูล.choices[0].message.content.trim()
+              : "";
+          return { input: คำสั่ง, output: ข้อความตอบ || null };
+        });
     })
     .catch(function () {
       return { input: คำสั่ง, output: null }; // เรียกไม่สำเร็จ หรือหมดเวลา — ยังส่ง input กลับไปให้บันทึกลง aiLog ได้
