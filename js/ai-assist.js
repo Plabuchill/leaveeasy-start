@@ -2,9 +2,8 @@
 // js/ai-assist.js — ผู้ช่วย AI ของ LeaveEasy (สัปดาห์ที่ 8)
 // เรียก OpenRouter ตรงจากเบราว์เซอร์ (ไม่มีเซิร์ฟเวอร์ของตัวเอง ตามข้อกำหนดของโปรเจกต์)
 //
-// 1) จัดประเภทการลาด้วยAI — US-09: ผลต้องเป็นประเภทที่มีอยู่จริงในระบบเท่านั้น
-//    ไม่ตรง/เรียกไม่สำเร็จ/เกิน 15 วิ ถือว่าจัดให้ไม่ได้
-// 2) สรุปใบลาด้วยAI — สรุปสั้น ๆ ให้หัวหน้าอ่านก่อนกดอนุมัติ ไม่แตะสถานะใบลาเอง
+// จัดประเภทการลาด้วยAI — US-09: ผลต้องเป็นประเภทที่มีอยู่จริงในระบบเท่านั้น
+// ไม่ตรง/เรียกไม่สำเร็จ/เกิน 15 วิ ถือว่าจัดให้ไม่ได้
 // ─────────────────────────────────────────────────────────────
 
 var เวลาสูงสุดมิลลิวินาที = 15000;
@@ -73,59 +72,6 @@ export function จัดประเภทการลาด้วยAI(เห�
     })
     .catch(function () {
       return null; // เรียกไม่สำเร็จ หรือหมดเวลา — ไม่ให้ระบบค้าง ถือว่าจัดให้ไม่ได้
-    })
-    .finally(function () {
-      clearTimeout(นับเวลา);
-    });
-}
-
-// ใบ: ออบเจ็กต์ใบลา { title, reason, leaveTypeName, requesterName, startDate, endDate, ... }
-// คืนค่า Promise<{input, output}> เสมอ — input ไว้บันทึกลง aiLog ทุกครั้งที่เรียกไม่ว่าสำเร็จหรือไม่
-// output เป็น null ถ้าเรียกไม่สำเร็จหรือหมดเวลา — ไม่แตะสถานะใบลาเอง รอคนกดยืนยันเสมอ
-export function สรุปใบลาด้วยAI(ใบ) {
-  var ตัวตัดเวลา = new AbortController();
-  var นับเวลา = setTimeout(function () { ตัวตัดเวลา.abort(); }, เวลาสูงสุดมิลลิวินาที);
-
-  var คำสั่ง =
-    "ต่อไปนี้คือใบขอลาหนึ่งใบ ช่วยเขียนสรุปสั้น ๆ ไม่เกิน 2 ประโยค ให้หัวหน้าอ่านก่อนตัดสินใจอนุมัติ " +
-    "ตอบเป็นข้อความสรุปเพียงอย่างเดียว ห้ามใส่คำนำหรือคำลงท้าย\n\n" +
-    "ผู้ขอลา: " + ใบ.requesterName + "\n" +
-    "ประเภทการลา: " + ใบ.leaveTypeName + "\n" +
-    "หัวข้อ: " + ใบ.title + "\n" +
-    "เหตุผล: " + ใบ.reason + "\n" +
-    "วันที่ลา: " + ใบ.startDate + " ถึง " + ใบ.endDate;
-
-  return โหลดค่าตั้งค่าAI()
-    .then(function (ตั้งค่า) {
-      if (!ตั้งค่า) return { input: คำสั่ง, output: null }; // ไม่มี ai-config.js — ถือว่าเรียกไม่สำเร็จ
-
-      return fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        signal: ตัวตัดเวลา.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + ตั้งค่า.key
-        },
-        body: JSON.stringify({
-          model: ตั้งค่า.model,
-          messages: [{ role: "user", content: คำสั่ง }],
-          temperature: 0.3
-        })
-      })
-        .then(function (ตอบกลับ) {
-          if (!ตอบกลับ.ok) throw new Error("เรียก AI ไม่สำเร็จ");
-          return ตอบกลับ.json();
-        })
-        .then(function (ข้อมูล) {
-          var ข้อความตอบ =
-            ข้อมูล.choices && ข้อมูล.choices[0] && ข้อมูล.choices[0].message
-              ? ข้อมูล.choices[0].message.content.trim()
-              : "";
-          return { input: คำสั่ง, output: ข้อความตอบ || null };
-        });
-    })
-    .catch(function () {
-      return { input: คำสั่ง, output: null }; // เรียกไม่สำเร็จ หรือหมดเวลา — ยังส่ง input กลับไปให้บันทึกลง aiLog ได้
     })
     .finally(function () {
       clearTimeout(นับเวลา);

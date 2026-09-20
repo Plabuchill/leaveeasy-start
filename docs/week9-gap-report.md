@@ -147,8 +147,8 @@
 | เกณฑ์ | ตรวจสอบจาก | สถานะ |
 |---|---|---|
 | **Security Rules รายห้อง** | firestore.rules ครบตามตาราง ACL.md | ✅ |
-| **ปุ่ม AI จัดประเภท** | new-leave-request.html line 31, js/ai-assist.js line 17-67 | ✅ |
-| **ปุ่ม AI สรุปใบลา** | leave-request-detail.html, js/ai-assist.js line 72-110 | ✅ |
+| **ปุ่ม AI จัดประเภท** | new-leave-request.html, js/ai-assist.js (US-09) | ✅ |
+| **ปุ่ม AI สรุปใบลา** | ตัดออกแล้ว (สัปดาห์ 9) — ช่อง `aiSuggestion` และ subcollection `aiLog` ไม่มีอยู่ในตารางโครงสร้างข้อมูลหัวข้อ 5 เลย และการเก็บ log ทุกครั้งที่เรียกพร้อมเวลาเข้าข่ายข้อห้ามหัวข้อ 9 "ไม่มีการเก็บประวัติการแก้ไข" — ไม่มี User Story/เกณฑ์ยอมรับอย่างเป็นทางการรองรับ (ต่างจาก US-09 ที่มีชัดเจน) จึงตัดออกทั้งหมด | ➖ ตัดออก |
 | **OpenRouter ผ่านเบราว์เซอร์** | js/ai-config.js (ที่ .gitignore), js/ai-assist.js fetch("https://openrouter.ai/...") | ✅ |
 | **Reviewer agent** (ตามหมายเหตุใน spec) | ไม่ใช่ส่วนของระบบต่อผู้ใช้ แต่เป็นเครื่องมือสำหรับผู้สอน | ✅ ทำเสร็จแล้ว |
 

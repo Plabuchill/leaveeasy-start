@@ -9,7 +9,6 @@ import {
   doc, getDoc, updateDoc, deleteDoc,
   collection, getDocs, addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { สรุปใบลาด้วยAI } from "./ai-assist.js";
 
 (async function () {
   var ผู้ใช้ = await getUserInfo();
@@ -67,8 +66,7 @@ import { สรุปใบลาด้วยAI } from "./ai-assist.js";
       ["ผู้ขอลา", esc(ใบ.requesterName)],
       ["ผู้อนุมัติ", ใบ.approverName ? esc(ใบ.approverName) : "ยังไม่ได้กำหนดผู้อนุมัติ"],
       ["สถานะ", ป้ายสถานะ(ใบ.status)],
-      ["วันที่ยื่น", esc(ใบ.createdAt)],
-      ["สรุปจาก AI", ใบ.aiSuggestion ? esc(ใบ.aiSuggestion) : "ยังไม่มีสรุปจาก AI"]
+      ["วันที่ยื่น", esc(ใบ.createdAt)]
     ];
 
     var html = แถว.map(function (r) {
@@ -86,16 +84,12 @@ import { สรุปใบลาด้วยAI } from "./ai-assist.js";
       if (ปุ่มพิจารณาได้) {
         html +=
           '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
-          '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
-          '<button type="button" class="btn-ghost" id="ปุ่มสรุปAI">🤖 ให้ AI ช่วยสรุปใบลา</button>';
+          '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>';
       }
       if (ปุ่มลบได้) {
         html += '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลา</button>';
       }
       html += "</div>";
-      if (ปุ่มพิจารณาได้) {
-        html += '<div id="ข้อความAIสรุป" class="alert alert-ai hidden"></div>';
-      }
     } else if (ใบ.status !== "รอพิจารณา") {
       html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
     }
@@ -105,58 +99,10 @@ import { สรุปใบลาด้วยAI } from "./ai-assist.js";
     if (ปุ่มพิจารณาได้) {
       document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
       document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
-      document.getElementById("ปุ่มสรุปAI").addEventListener("click", สรุปด้วยAI);
     }
     if (ปุ่มลบได้) {
       document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
     }
-  }
-
-  // ── ให้ AI ช่วยสรุปใบลาให้หัวหน้าอ่านก่อนตัดสินใจ ──
-  // แก้เฉพาะช่อง aiSuggestion เท่านั้น ไม่แตะช่อง status — สถานะจริงต้องรอคนกดอนุมัติ/ไม่อนุมัติเองเสมอ
-  function สรุปด้วยAI() {
-    var ปุ่ม = document.getElementById("ปุ่มสรุปAI");
-    var กล่องข้อความ = document.getElementById("ข้อความAIสรุป");
-    ปุ่ม.disabled = true;
-    ปุ่ม.textContent = "🤖 กำลังสรุป...";
-    กล่องข้อความ.classList.add("hidden");
-
-    สรุปใบลาด้วยAI(ใบ)
-      .then(function (ผลลัพธ์) {
-        // บันทึกลง aiLog ทุกครั้งที่เรียก ไม่ว่าจะสำเร็จหรือไม่
-        var งานบันทึกล็อก = addDoc(collection(db, "leaveRequests", รหัสใบลา, "aiLog"), {
-          input: ผลลัพธ์.input,
-          output: ผลลัพธ์.output,
-          createdAt: เวลาตอนนี้()
-        });
-
-        if (!ผลลัพธ์.output) {
-          กล่องข้อความ.textContent = "⚠️ AI สรุปให้ไม่ได้ในตอนนี้ ลองใหม่อีกครั้ง";
-          กล่องข้อความ.className = "alert alert-error";
-          กล่องข้อความ.classList.remove("hidden");
-          return งานบันทึกล็อก;
-        }
-
-        return Promise.all([
-          งานบันทึกล็อก,
-          updateDoc(refใบ, { aiSuggestion: ผลลัพธ์.output })
-        ]).then(function () {
-          ใบ.aiSuggestion = ผลลัพธ์.output;
-          วาดใบลา();
-        });
-      })
-      .catch(function (err) {
-        กล่องข้อความ.textContent = "⚠️ บันทึกสรุปไม่สำเร็จ ลองใหม่อีกครั้ง (" + err.message + ")";
-        กล่องข้อความ.className = "alert alert-error";
-        กล่องข้อความ.classList.remove("hidden");
-      })
-      .finally(function () {
-        var ปุ่มล่าสุด = document.getElementById("ปุ่มสรุปAI");
-        if (ปุ่มล่าสุด) {
-          ปุ่มล่าสุด.disabled = false;
-          ปุ่มล่าสุด.textContent = "🤖 ให้ AI ช่วยสรุปใบลา";
-        }
-      });
   }
 
   // ── เปลี่ยนสถานะ — แก้เฉพาะช่อง status ในเอกสารจริง ห้ามแตะช่องอื่น ──
@@ -188,16 +134,11 @@ import { สรุปใบลาด้วยAI } from "./ai-assist.js";
     var ปุ่มทั้งหมด = กล่องใบลา.querySelectorAll("button");
     ปุ่มทั้งหมด.forEach(function (ป) { ป.disabled = true; });
 
-    getDocs(collection(db, "leaveRequests", รหัสใบลา, "aiLog"))
-      .then(function (สแนปช็อตล็อก) {
-        var ลบล็อกทั้งหมด = สแนปช็อตล็อก.docs.map(function (เอกสาร) {
-          return deleteDoc(doc(db, "leaveRequests", รหัสใบลา, "aiLog", เอกสาร.id));
-        });
-        var ลบความเห็นทั้งหมด = ความเห็น.map(function (c) {
-          return deleteDoc(doc(db, "leaveRequests", รหัสใบลา, "approvals", c.id));
-        });
-        return Promise.all(ลบล็อกทั้งหมด.concat(ลบความเห็นทั้งหมด));
-      })
+    var ลบความเห็นทั้งหมด = ความเห็น.map(function (c) {
+      return deleteDoc(doc(db, "leaveRequests", รหัสใบลา, "approvals", c.id));
+    });
+
+    Promise.all(ลบความเห็นทั้งหมด)
       .then(function () { return deleteDoc(refใบ); })
       .then(function () {
         location.href = "leave-requests.html";

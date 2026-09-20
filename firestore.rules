@@ -41,7 +41,7 @@ service cloud.firestore {
 
     // ── leaveRequests — เจ้าของใบเห็นใบตัวเอง · manager/hr เห็นทุกใบ ──
     match /leaveRequests/{requestId} {
-      // ใช้ร่วมกันทั้ง approvals และ aiLog ด้านล่าง
+      // ใช้ร่วมกันของ approvals ด้านล่าง
       function isOwnerOfRequest() {
         return get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.requesterId == request.auth.uid;
       }
@@ -55,11 +55,8 @@ service cloud.firestore {
         request.resource.data.status == 'รอพิจารณา';
 
       // เปลี่ยนสถานะ: เฉพาะ manager/hr และแก้ได้เฉพาะช่อง status ห้ามแตะช่องอื่น
-      // บันทึกสรุปจาก AI (aiSuggestion): เฉพาะ manager/hr เช่นกัน แต่ต้องแก้แยกจากช่อง status เสมอ
-      // (คนละครั้งเขียน ไม่ใช่พร้อมกัน) เพื่อไม่ให้การเปลี่ยนสถานะเขียนทับช่องอื่นได้
       allow update: if isApproverOrHr() &&
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) ||
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiSuggestion']));
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
 
       // ลบ: เฉพาะเจ้าของใบ และใบต้องยังเป็น "รอพิจารณา"
       allow delete: if isSignedIn() &&
@@ -77,21 +74,6 @@ service cloud.firestore {
         allow update: if false;
 
         // ลบความเห็นได้เฉพาะตอนเจ้าของใบลบทั้งใบ ขณะใบยังเป็น "รอพิจารณา"
-        allow delete: if isSignedIn() &&
-          isOwnerOfRequest() &&
-          get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.status == 'รอพิจารณา';
-      }
-
-      // ── aiLog — ประวัติการเรียก AI สรุปใบลาของใบนี้ (input/output/createdAt ทุกครั้งที่เรียก) ──
-      match /aiLog/{logId} {
-        allow read: if isSignedIn() && (isOwnerOfRequest() || isApproverOrHr());
-
-        // สร้างได้เฉพาะ manager/hr เพราะเป็นคนกดปุ่มให้ AI สรุปใบลา
-        allow create: if isApproverOrHr();
-
-        allow update: if false;
-
-        // ลบพร้อมกับตอนเจ้าของใบลบทั้งใบ ขณะใบยังเป็น "รอพิจารณา" (เหมือน approvals)
         allow delete: if isSignedIn() &&
           isOwnerOfRequest() &&
           get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.status == 'รอพิจารณา';
