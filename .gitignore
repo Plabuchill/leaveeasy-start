@@ -10,6 +10,13 @@ node_modules/
 .firebase/
 
 
+# ── ผลลัพธ์จากการรันเทสต์ Playwright (สร้างใหม่ได้ทุกครั้งที่รัน) ──
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+
 # ── ไฟล์ที่เครื่องเราสร้างเอง ──
 .DS_Store
 Thumbs.db
